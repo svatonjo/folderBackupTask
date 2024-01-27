@@ -1,6 +1,7 @@
 import sys
 import filecmp
 import os
+import shutil
 from datetime import datetime
 
 # Global static variables
@@ -8,14 +9,14 @@ global logFileName, syncInterval
 
 def main():
   # Check if the correct number of arguments is provided
-  # if len(sys.argv) < 4 or len(sys.argv) > 5:
-  #   print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncInterval> [logFileName]")
-  #   sys.exit(1)
+  if len(sys.argv) < 4 or len(sys.argv) > 5:
+    print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncInterval> [logFileName]")
+    sys.exit(1)
   global logFileName
   global syncInterval
 
   # Get the argument from the command line
-  # syncInterval = sys.argv[3]
+  syncInterval = sys.argv[3]
   # Optional argument declaration
   if len(sys.argv) == 5:
     logFileName = sys.argv[4]
@@ -24,20 +25,51 @@ def main():
     formatted_datetime = dateTimeNow.strftime("%Y-%m-%d_%H-%M-%S")
     logFileName = "replicaLog_%s" %formatted_datetime
 
-def compareDirs(dir1Obj, dir2Obj, currentPath=''):
-  for entry, content in dir1Obj.items():
-    entry_path = os.path.join(currentPath, entry)
-    if entry not in dir2Obj:
-      print("Warning: %s exists in the first structure but not in the second." % entry_path)
-    elif content != dir2Obj[entry]:
-      print("Warning: %s has different type in the second structure." % entry_path)
+def compareDirs(dir1Obj, dir2Obj):
+  for entry, content in dir1Obj.files.items():
+    entry_path1 = os.path.join(dir1Obj.folderPath, entry)
+    entry_path2 = os.path.join(dir2Obj.folderPath, entry)
+    if entry not in dir2Obj.files:
+      print("Warning: %s exists in the first structure but not in the second." % entry_path1)
+      if content != 'File':
+        shutil.copytree(entry_path1, entry_path2)
+      else:
+        shutil.copy(entry_path1, entry_path2)
     else:
-      print("Entry %s at the same position" % entry_path)
-    
+      print("Entry %s at the same position" % entry_path1)
+      if content == 'File':
+        comparison = filecmp.cmp(entry_path1, entry_path2, shallow=True)
+
     if isinstance(content, dict):
       # Recursively compare subdirectories
-      sub_path = os.path.join(currentPath, entry)
-      compareDirs(content, dir2Obj.get(entry, {}), currentPath=sub_path)
+      subDir1obj = folderInfo(entry_path1)
+      subDir2obj = folderInfo(entry_path2)
+      compareDirs(subDir1obj, subDir2obj)
+
+def compareDirsRemove(dir1Obj, dir2Obj):
+  for entry, content in dir1Obj.files.items():
+    entry_path1 = os.path.join(dir1Obj.folderPath, entry)
+    entry_path2 = os.path.join(dir2Obj.folderPath, entry)
+    if entry not in dir2Obj.files:
+      print("Warning: %s exists in the first structure but not in the second." % entry_path1)
+      if content != 'File':
+        try:
+          shutil.rmtree(entry_path1)
+          print(f"Directory '{entry_path1}' removed successfully.")
+        except OSError as e:
+            print(f"Error removing directory '{entry_path1}': {e}")
+      else:
+        try:
+          os.remove(entry_path1)
+          print(f"File '{entry_path1}' removed successfully.")
+        except OSError as e:
+          print(f"Error removing file '{entry_path1}': {e}")
+
+    if isinstance(content, dict):
+      # Recursively compare subdirectories
+      subDir1obj = folderInfo(entry_path1)
+      subDir2obj = folderInfo(entry_path2)
+      compareDirs(subDir1obj, subDir2obj)
 
 def build_directory_structure(directory):
   directory_structure = {}
@@ -62,12 +94,7 @@ class folderInfo:
 
 if __name__ == "__main__":
   main()
-  # sourceFolder = folderInfo(sys.argv[1])
-  sourceFolder = folderInfo('source')
-  # replicaFolder = folderInfo(sys.argv[2])
-  replicaFolder = folderInfo('replica')
-  # comparison = filecmp.cmp(sourceFolder.folderPath, replicaFolder.folderPath, shallow = False)
-  compareDirs(sourceFolder.files, replicaFolder.files)
-
-  # Add this line to keep the console window open
-  input("Press Enter to exit...")
+  sourceFolder = folderInfo(sys.argv[1])
+  replicaFolder = folderInfo(sys.argv[2])
+  compareDirs(sourceFolder, replicaFolder)
+  compareDirsRemove(replicaFolder, sourceFolder)
