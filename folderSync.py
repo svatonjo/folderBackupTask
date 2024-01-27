@@ -2,21 +2,25 @@ import sys
 import filecmp
 import os
 import shutil
+import time
 from datetime import datetime
-
-# Global static variables
-global logFileName, syncInterval
 
 def main():
   # Check if the correct number of arguments is provided
   if len(sys.argv) < 4 or len(sys.argv) > 5:
     print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncInterval> [logFileName]")
     sys.exit(1)
-  global logFileName
-  global syncInterval
+
+  # Global static variables
+  global logFileName, syncInterval
 
   # Get the argument from the command line
-  syncInterval = sys.argv[3]
+  try:
+    syncInterval = float(sys.argv[3])
+  except: 
+    print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncIntervalNumber> [logFileName]")
+    sys.exit(1)
+    
   # Optional argument declaration
   if len(sys.argv) == 5:
     logFileName = sys.argv[4]
@@ -98,5 +102,7 @@ if __name__ == "__main__":
   main()
   sourceFolder = folderInfo(sys.argv[1])
   replicaFolder = folderInfo(sys.argv[2])
-  compareDirs(sourceFolder, replicaFolder)
-  compareDirsRemove(replicaFolder, sourceFolder)
+  while True:
+    compareDirs(sourceFolder, replicaFolder)
+    compareDirsRemove(replicaFolder, sourceFolder)
+    time.sleep(syncInterval)
