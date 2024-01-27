@@ -39,6 +39,8 @@ def compareDirs(dir1Obj, dir2Obj):
       print("Entry %s at the same position" % entry_path1)
       if content == 'File':
         comparison = filecmp.cmp(entry_path1, entry_path2, shallow=True)
+        if ~comparison:
+          shutil.copy(entry_path1, entry_path2)
 
     if isinstance(content, dict):
       # Recursively compare subdirectories
