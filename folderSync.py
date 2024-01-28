@@ -20,7 +20,7 @@ def main():
   except: 
     print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncIntervalNumber> [logFileName]")
     sys.exit(1)
-    
+
   # Optional argument declaration
   if len(sys.argv) == 5:
     logFileName = sys.argv[4]
@@ -56,6 +56,7 @@ def compareDirsRemove(dir1Obj, dir2Obj):
   for entry, content in dir1Obj.files.items():
     entry_path1 = os.path.join(dir1Obj.folderPath, entry)
     entry_path2 = os.path.join(dir2Obj.folderPath, entry)
+    
     if entry not in dir2Obj.files:
       print("Warning: %s exists in the first structure but not in the second." % entry_path1)
       if content != 'File':
@@ -63,19 +64,19 @@ def compareDirsRemove(dir1Obj, dir2Obj):
           shutil.rmtree(entry_path1)
           print(f"Directory '{entry_path1}' removed successfully.")
         except OSError as e:
-            print(f"Error removing directory '{entry_path1}': {e}")
+          print(f"Error removing directory '{entry_path1}': {e}")
       else:
         try:
           os.remove(entry_path1)
           print(f"File '{entry_path1}' removed successfully.")
         except OSError as e:
           print(f"Error removing file '{entry_path1}': {e}")
-
-    if isinstance(content, dict):
-      # Recursively compare subdirectories
-      subDir1obj = folderInfo(entry_path1)
-      subDir2obj = folderInfo(entry_path2)
-      compareDirs(subDir1obj, subDir2obj)
+    else:
+      if isinstance(content, dict):
+        # Recursively compare subdirectories
+        subDir1obj = folderInfo(entry_path1)
+        subDir2obj = folderInfo(entry_path2)
+        compareDirsRemove(subDir1obj, subDir2obj)
 
 def build_directory_structure(directory):
   directory_structure = {}
@@ -100,9 +101,12 @@ class folderInfo:
 
 if __name__ == "__main__":
   main()
-  sourceFolder = folderInfo(sys.argv[1])
-  replicaFolder = folderInfo(sys.argv[2])
+
   while True:
+    # obj needs an update for each interval
+    sourceFolder = folderInfo(sys.argv[1])
+    replicaFolder = folderInfo(sys.argv[2])
+    # Folder-Sync
     compareDirs(sourceFolder, replicaFolder)
     compareDirsRemove(replicaFolder, sourceFolder)
     time.sleep(syncInterval)
