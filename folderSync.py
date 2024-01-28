@@ -3,6 +3,7 @@ import filecmp
 import os
 import shutil
 import time
+import logging
 from datetime import datetime
 
 def main():
@@ -21,7 +22,7 @@ def main():
     print("Usage: python folderSync.py <sourcePath> <replicaPath> <syncIntervalNumber> [logFileName]")
     sys.exit(1)
 
-  # Optional argument declaration
+  # Optional argument for logFile declaration
   if len(sys.argv) == 5:
     logFileName = sys.argv[4]
   else:
@@ -29,22 +30,30 @@ def main():
     formatted_datetime = dateTimeNow.strftime("%Y-%m-%d_%H-%M-%S")
     logFileName = "replicaLog_%s" %formatted_datetime
 
+  logging.basicConfig(filename=logFileName, level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+  writeLog('Sync script initialized.')
+
+def writeLog(textStr):
+  print(textStr)
+  logging.info(textStr)
+
 def compareDirs(dir1Obj, dir2Obj):
   for entry, content in dir1Obj.files.items():
     entry_path1 = os.path.join(dir1Obj.folderPath, entry)
     entry_path2 = os.path.join(dir2Obj.folderPath, entry)
     if entry not in dir2Obj.files:
-      print("Warning: %s exists in the first structure but not in the second." % entry_path1)
       if content != 'File':
         shutil.copytree(entry_path1, entry_path2)
+        writeLog('New Source folder %s copied to Replica folder' % entry)
       else:
         shutil.copy(entry_path1, entry_path2)
+        writeLog('New Source file %s copied to Replica folder' % entry)
     else:
-      print("Entry %s at the same position" % entry_path1)
       if content == 'File':
         comparison = filecmp.cmp(entry_path1, entry_path2, shallow=True)
-        if ~comparison:
+        if not comparison:
           shutil.copy(entry_path1, entry_path2)
+          writeLog("Source file %s is different from replica folder. Copied to Replica folder" % entry)
 
     if isinstance(content, dict):
       # Recursively compare subdirectories
@@ -56,21 +65,20 @@ def compareDirsRemove(dir1Obj, dir2Obj):
   for entry, content in dir1Obj.files.items():
     entry_path1 = os.path.join(dir1Obj.folderPath, entry)
     entry_path2 = os.path.join(dir2Obj.folderPath, entry)
-    
+
     if entry not in dir2Obj.files:
-      print("Warning: %s exists in the first structure but not in the second." % entry_path1)
       if content != 'File':
         try:
           shutil.rmtree(entry_path1)
-          print(f"Directory '{entry_path1}' removed successfully.")
+          writeLog("Old directory %s removed from Replica folder." % entry)
         except OSError as e:
-          print(f"Error removing directory '{entry_path1}': {e}")
+          writeLog("Error removing directory %s from Replica folder: %s" % (entry, e))
       else:
         try:
           os.remove(entry_path1)
-          print(f"File '{entry_path1}' removed successfully.")
+          writeLog("Old file %s removed from Replica folder." % entry)
         except OSError as e:
-          print(f"Error removing file '{entry_path1}': {e}")
+          writeLog("Error removing file %s from Replica folder: %s" % (entry, e))
     else:
       if isinstance(content, dict):
         # Recursively compare subdirectories
@@ -97,6 +105,9 @@ class folderInfo:
   def __init__(self, folderPath):
     # Convert the path to an absolute path
     self.folderPath = os.path.abspath(folderPath)
+    # Check if the folder exists, and create it if not
+    if not os.path.exists(self.folderPath):
+        os.makedirs(self.folderPath)
     self.files = build_directory_structure(self.folderPath)
 
 if __name__ == "__main__":
